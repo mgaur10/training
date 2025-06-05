@@ -14,6 +14,15 @@ resource "google_service_account" "srv_acc" {
 }
 
 
+resource "google_project_iam_member" "srv_acc_project"   {
+  project = var.project_id
+  role    = "roles/compute.viewer"
+
+  member = "serviceAccount:${google_service_account.srv_acc.email}"
+  
+}  
+
+
 # VPC
 resource "google_compute_network" "vpc_network" {
   name                    = var.vpc_network_name
@@ -33,7 +42,7 @@ resource "google_compute_network" "vpc_network" {
 resource "google_compute_subnetwork" "vpc_subnetwork" {
   name          = var.subnet
   provider      = google-beta
-  #ip_cidr_range = "10.0.1.0/24"
+  ip_cidr_range = "10.0.1.0/24"
   region        = var.region
   network       = google_compute_network.vpc_network.id
   project       = var.project_id
@@ -62,14 +71,14 @@ resource "google_compute_firewall" "allow_iap_proxy" {
 
 resource "google_compute_instance" "default" {
   name         = var.vm_name
-  machine_type = "n1-standard-1"
+  machine_type = "n1-standard-2"
   zone         = var.zone
   project   = var.project_id
   tags = ["foo", "bar"]
 
   boot_disk {
     initialize_params {
-      image = "debian-cloud/debian-11"
+      image = "debian-cloud/debian-12"
     }
   }
 
@@ -86,11 +95,11 @@ resource "google_compute_instance" "default" {
     }
   }
 
-  metadata = {
-    foo = "bar"
-  }
 
-  metadata_startup_script = " curl --silent \"http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/\" -H \"Metadata-Flavor: Google\" | jq . "
+  metadata = {
+    enable-oslogin = "TRUE"
+  }
+  metadata_startup_script = "sudo apt-get install jq  && curl --silent \"http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/\" -H \"Metadata-Flavor: Google\" | jq . "
   service_account {
     scopes = ["cloud-platform"]
     email  = google_service_account.srv_acc.email
